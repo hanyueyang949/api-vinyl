@@ -10,8 +10,21 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
 )
 
+def compare_casefolded_text(left: str, right: str) -> int:
+    left_key = left.casefold()
+    right_key = right.casefold()
+
+    if left_key < right_key:
+        return -1
+    if left_key > right_key:
+        return 1
+    return 0
+
+
 @event.listens_for(engine, "connect")
-def enable_sqlite_foreign_keys(connection, record):
+def configure_sqlite_connection(connection, record):
+    connection.create_collation("UNICODE_NOCASE", compare_casefolded_text)
+
     cursor = connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
