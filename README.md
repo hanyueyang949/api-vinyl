@@ -39,3 +39,13 @@ python -m uvicorn main:app --reload
 Abre [Swagger](http://127.0.0.1:8000/docs). Para comprobar que la API puede leer la base de datos, abre el [listado de vinilos](http://127.0.0.1:8000/vinyls). Con una base recién creada, el listado responde `200` con `[]`.
 
 Para detener el servidor, pulsa `Ctrl+C` en la terminal.
+
+### 5. Abrir el frontend local
+
+Deja la API en marcha en `http://127.0.0.1:8000`. En otra terminal, abre la carpeta del repositorio `frontend-vinyl` y ejecuta:
+
+```bash
+python3 -m http.server 5500 --bind 127.0.0.1
+```
+
+Abre la web en [http://127.0.0.1:5500](http://127.0.0.1:5500). CORS permite que JavaScript lea las respuestas de la API desde esa dirección. El navegador trata `http://localhost:5500` como un origen distinto.
