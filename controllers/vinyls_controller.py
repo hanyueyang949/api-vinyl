@@ -1,11 +1,8 @@
 from decimal import Decimal
-
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
-
 from models.vinyl import Vinyl
 from models.artist import Artist
 from models.genre import Genre
