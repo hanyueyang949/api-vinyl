@@ -1,9 +1,12 @@
 from decimal import Decimal
-
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
-
 from models.vinyl import Vinyl
+from models.artist import Artist
+from models.genre import Genre
+from schemas.vinyl import VinylCreate, VinylUpdate
 
 
 def _format_vinyl(vinyl: Vinyl) -> dict:
@@ -68,3 +71,120 @@ def get_vinyl_by_id(db: Session, vinyl_id: int) -> dict | None:
         return None
 
     return _format_vinyl(vinyl)
+
+def _validate_relations(db: Session, artist_id: int, genre_id: int) -> None:
+    if db.get(Artist, artist_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No existe el artista con id {artist_id}",
+        )
+
+    if db.get(Genre, genre_id) is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No existe el género con id {genre_id}",
+        )
+
+
+def _validate_unique_title(
+    db: Session,
+    title: str,
+    artist_id: int,
+    exclude_vinyl_id: int | None = None,
+) -> None:
+    statement = select(Vinyl).where(
+        Vinyl.title == title,
+        Vinyl.artist_id == artist_id,
+    )
+
+    if exclude_vinyl_id is not None:
+        statement = statement.where(Vinyl.id_vinyl != exclude_vinyl_id)
+
+    existing_vinyl = db.scalars(statement).first()
+
+    if existing_vinyl is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Ese artista ya tiene un vinilo con ese título",
+        )
+
+
+def create_vinyl(db: Session, vinyl_data: VinylCreate) -> Vinyl:
+    data = vinyl_data.model_dump()
+
+    _validate_relations(db, data["artist_id"], data["genre_id"])
+    _validate_unique_title(db, data["title"], data["artist_id"])
+
+    vinyl = Vinyl(**data)
+    db.add(vinyl)
+
+    try:
+        db.commit()
+        db.refresh(vinyl)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo crear el vinilo por un conflicto con los datos",
+        )
+
+    return vinyl
+
+
+def update_vinyl(
+    db: Session,
+    vinyl_id: int,
+    vinyl_data: VinylUpdate,
+) -> Vinyl:
+    vinyl = db.get(Vinyl, vinyl_id)
+
+    if vinyl is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No existe el vinilo con id {vinyl_id}",
+        )
+
+    data = vinyl_data.model_dump()
+
+    _validate_relations(db, data["artist_id"], data["genre_id"])
+    _validate_unique_title(
+        db,
+        data["title"],
+        data["artist_id"],
+        exclude_vinyl_id=vinyl_id,
+    )
+
+    for field, value in data.items():
+        setattr(vinyl, field, value)
+
+    try:
+        db.commit()
+        db.refresh(vinyl)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo actualizar el vinilo por un conflicto con los datos",
+        )
+
+    return vinyl
+
+
+def delete_vinyl(db: Session, vinyl_id: int) -> None:
+    vinyl = db.get(Vinyl, vinyl_id)
+
+    if vinyl is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No existe el vinilo con id {vinyl_id}",
+        )
+
+    try:
+        db.delete(vinyl)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo borrar el vinilo por una restricción de la base de datos",
+        )
