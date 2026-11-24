@@ -1,8 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query,  Response, status
 from sqlalchemy.orm import Session
 
 from controllers.vinyls_controller import get_vinyl_by_id, get_vinyls
 from database.database import get_db
+
+from controllers.vinyls_controller import (
+    create_vinyl,
+    delete_vinyl,
+    update_vinyl,
+)
+from schemas.vinyl import VinylCreate, VinylResponse, VinylUpdate
 
 
 router = APIRouter(
@@ -36,3 +43,43 @@ def read_vinyl(
         )
 
     return vinyl
+
+@router.post(
+    "",
+    response_model=VinylResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_vinyl_route(
+    vinyl_data: VinylCreate,
+    db: Session = Depends(get_db),
+):
+    return create_vinyl(db=db, vinyl_data=vinyl_data)
+
+
+@router.put(
+    "/{vinyl_id}",
+    response_model=VinylResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_vinyl_route(
+    vinyl_id: int,
+    vinyl_data: VinylUpdate,
+    db: Session = Depends(get_db),
+):
+    return update_vinyl(
+        db=db,
+        vinyl_id=vinyl_id,
+        vinyl_data=vinyl_data,
+    )
+
+
+@router.delete(
+    "/{vinyl_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_vinyl_route(
+    vinyl_id: int,
+    db: Session = Depends(get_db),
+):
+    delete_vinyl(db=db, vinyl_id=vinyl_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
